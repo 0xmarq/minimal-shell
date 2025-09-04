@@ -8,4 +8,5 @@ int main() {
   cout << "$ ";
   string input;
   getline(std::cin, input);
+  cout<< input << ": command not found"<< '\n';
 }
