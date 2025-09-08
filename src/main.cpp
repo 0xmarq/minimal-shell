@@ -42,7 +42,7 @@ int main() {
         cout<<inputSuffix<<" "<< "is a shell builtin"<<'\n';
         flag=1;
       }
-      else cout<<inputSuffix<<": command not found"<<'\n';          
+      else cout<<inputSuffix<<": not found"<<'\n';          
     }
   } 
   if(flag==0){
