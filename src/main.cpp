@@ -4,7 +4,7 @@ using namespace std;
 struct searchResult{
   bool found;
   int index;
-}
+};
 
 searchResult searchArray(string commands[], int size, string input){
   for(int i=0;i<size;i++){
@@ -23,15 +23,15 @@ int main() {
   getline(std::cin, input);
   string commands[] = {"exit", "echo","type"};
   
-  int commandsSize = commands.size();
+  int commandsSize = sizeof(commands)/sizeof(string);
   int whitespaceIndex = input.find(" ");
 
   string inputPrefix = input.substr(0, whitespaceIndex);
-  string inputSufix = input.substr(whitespaceIndex+1, input.length());
+  string inputSuffix = input.substr(whitespaceIndex+1, input.length());
   
-  searchResult result = searchArray(commands, commandsSize, inputPrefuix);
+  searchResult result = searchArray(commands, commandsSize, inputPrefix);
   if(result.found){
-    if(commands[result.index] == "exit") return stoi(inputSufix);
+    if(commands[result.index] == "exit") return stoi(inputSuffix);
   }
   
   cout<< input << ": command not found"<< '\n';
