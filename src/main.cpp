@@ -37,6 +37,13 @@ int main() {
       cout<<inputSuffix<<'\n';
       flag = 1;
     }
+    else if(commands[result.index]=="type"){
+      if(inputSuffix == "exit" || inputSuffix=="echo" || inputSuffix=="type"){
+        cout<<inputSuffix<<" "<< "is a shell builtin"<<'\n';
+        flag=1;
+      }
+      else cout<<inputSuffix<<": command not found"<<'\n';          
+    }
   } 
   if(flag==0){
     cout<< input << ": command not found"<< '\n';
