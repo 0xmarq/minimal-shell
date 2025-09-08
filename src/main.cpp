@@ -18,7 +18,11 @@ searchResult searchArray(string commands[], int size, string input){
 int main() {  
   cout << std::unitbuf;
   cerr << std::unitbuf;
+  cout << "$ ";
+  string input;
+  getline(std::cin, input);
   string commands[] = {"exit", "echo","type"};
+  
   int commandsSize = commands.size();
   int whitespaceIndex = input.find(" ");
 
@@ -30,10 +34,6 @@ int main() {
     if(commands[result.index] == "exit") return stoi(inputSufix);
   }
   
-  cout << "$ ";
-  string input;
-  getline(std::cin, input);
-  if(input == "exit")
   cout<< input << ": command not found"<< '\n';
   main();
 }
