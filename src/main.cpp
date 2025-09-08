@@ -9,4 +9,5 @@ int main() {
   string input;
   getline(std::cin, input);
   cout<< input << ": command not found"<< '\n';
+  main();
 }
