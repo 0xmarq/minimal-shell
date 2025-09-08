@@ -30,10 +30,16 @@ int main() {
   string inputSuffix = input.substr(whitespaceIndex+1, input.length());
   
   searchResult result = searchArray(commands, commandsSize, inputPrefix);
+  bool flag = 0;
   if(result.found){
     if(commands[result.index] == "exit") return stoi(inputSuffix);
+    else if(commands[result.index] == "echo"){
+      cout<<inputSuffix<<'\n';
+      flag = 1;
+    }
+  } 
+  if(flag==0){
+    cout<< input << ": command not found"<< '\n';
   }
-  
-  cout<< input << ": command not found"<< '\n';
   main();
 }
