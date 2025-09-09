@@ -60,8 +60,11 @@ void handleExit(const Command &cmd){
 
 void handleEcho(const Command &cmd){
 	if(!cmd.args.empty()){
-		cout<< cmd.args[0]<<'\n';
+		for(auto &arg: cmd.args){
+			cout<< arg<<" ";
+		}
 	}
+	cout<<'\n';
 }
 
 void handleType(const Command &cmd) {
