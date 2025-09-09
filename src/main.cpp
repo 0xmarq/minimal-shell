@@ -27,7 +27,7 @@ Command parseInput(const string input){
 }
 
 bool isBuiltin(const string &name){
-	return(name == "exit" || name == "echo" || name == "type");
+	return(name == "exit" || name == "echo" || name == "type" || name=="pwd");
 }
 
 //<--- Search PATH --->
@@ -52,6 +52,16 @@ void searchPath(const string &commandName) {
 }
 
 //<--- Builtin handlers ---> //
+
+void handlePwd(const Command &cmd) {
+    char cwd[1024];  // buffer
+	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+		cout << cwd << "\n";
+    } 	else {
+		perror("getcwd");
+    }
+}
+
 
 void handleExit(const Command &cmd){
 	int code = (cmd.args.empty() ? 0 : stoi(cmd.args[0]));
@@ -84,6 +94,7 @@ void execute(const Command &cmd){
 	if (cmd.name == "exit") handleExit(cmd);
 	else if (cmd.name == "echo") handleEcho(cmd);
 	else if (cmd.name == "type") handleType(cmd);
+	else if(cmd.name == "pwd") handlePwd(cmd);
 	else {
 		vector<char*> argv;
 		argv.push_back(const_cast<char*>(cmd.name.c_str()));
