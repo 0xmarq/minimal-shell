@@ -1,5 +1,9 @@
 #include<bits/stdc++.h>
 #include<cstdlib>
+#include<unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include<sstream>
 
 using namespace std;
 
@@ -11,13 +15,13 @@ struct Command{
 // <--- Utilities ----> //
 Command parseInput(const string input){
 	Command cmd;
-	//int size = sizeof(input)/sizeof(string);
-	int pos = input.find(" ");
-	if(pos== string::npos) cmd.name = input;
-	else{
-		cmd.name = input.substr(0, pos);
-		string rest = input.substr(pos+1);
-		cmd.args.push_back(rest);
+	istringstream inp(input);
+	string token;
+	if(inp >> token){
+		cmd.name = token;
+	}
+	while(inp >> token){
+		cmd.args.push_back(token);
 	}
 	return cmd;
 }
@@ -77,7 +81,32 @@ void execute(const Command &cmd){
 	if (cmd.name == "exit") handleExit(cmd);
 	else if (cmd.name == "echo") handleEcho(cmd);
 	else if (cmd.name == "type") handleType(cmd);
-	else cout << cmd.name << ": command not found\n";
+	else {
+		vector<char*> argv;
+		argv.push_back(const_cast<char*>(cmd.name.c_str()));
+		for(auto &arg : cmd.args){
+			argv.push_back(const_cast<char*>(arg.c_str()));
+		}
+		argv.push_back(NULL);
+
+		pid_t pid = fork();
+		if(pid == 0){
+			// <--- child process:
+			execvp(argv[0], argv.data());
+			cerr<< cmd.name<<": command not found\n";
+			exit(1);
+
+		}
+		else if (pid > 0) {
+	        // <--- Parent process: wait for child
+        		int status;
+        		waitpid(pid, &status, 0);
+    		} else {
+        		perror("fork failed");
+    		}
+	}
+
+
 }
 
 // <--- Main --->
