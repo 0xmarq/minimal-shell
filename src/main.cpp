@@ -53,16 +53,6 @@ void searchPath(const string &commandName) {
 
 //<--- Builtin handlers ---> //
 
-void handlePwd(const Command &cmd) {
-    char cwd[1024];  // buffer
-	if (getcwd(cwd, sizeof(cwd)) != NULL) {
-		cout << cwd << "\n";
-    } 	else {
-		perror("getcwd");
-    }
-}
-
-
 void handleExit(const Command &cmd){
 	int code = (cmd.args.empty() ? 0 : stoi(cmd.args[0]));
 	exit(code);
@@ -87,6 +77,28 @@ void handleType(const Command &cmd) {
         	searchPath(arg);	
 	}
 }
+void handlePwd(const Command &cmd) {
+    char cwd[1024];  // buffer
+	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+		cout << cwd << "\n";
+    } 	else {
+		perror("getcwd");
+    }
+}
+
+
+void handleCd(const Command &cmd){
+	const char* path;
+	if(cmd.args.empty()){
+		path = getenv("HOME");
+		if(!path) path="/";
+	}else{
+		path = cmd.args[0].c_str();
+	}
+	if(chdir(path) != 0) perror("cd");
+
+}
+
 
 
 //<--- Dispatcher ---> //
@@ -95,6 +107,7 @@ void execute(const Command &cmd){
 	else if (cmd.name == "echo") handleEcho(cmd);
 	else if (cmd.name == "type") handleType(cmd);
 	else if(cmd.name == "pwd") handlePwd(cmd);
+	else if(cmd.name == "cd") handleCd(cmd);
 	else {
 		vector<char*> argv;
 		argv.push_back(const_cast<char*>(cmd.name.c_str()));
