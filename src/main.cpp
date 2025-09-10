@@ -95,7 +95,9 @@ void handleCd(const Command &cmd){
 	}else{
 		path = cmd.args[0].c_str();
 	}
-	if(chdir(path) != 0) perror("cd");
+	if(chdir(path) != 0){
+		cerr << "cd: " << path << ": "<<strerror(errno) <<'\n';
+	}
 
 }
 
