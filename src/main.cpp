@@ -89,13 +89,17 @@ void handlePwd(const Command &cmd) {
 
 void handleCd(const Command &cmd){
 	const char* path;
+	int flag=0;
 	if(cmd.args.empty()){
+		cout<<" cd: missing argument"<<'\n';
+		flag=1;
+	}else if(cmd.args[0]=="~"){
 		path = getenv("HOME");
-		if(!path) path="/";
-	}else{
+	}
+	else{
 		path = cmd.args[0].c_str();
 	}
-	if(chdir(path) != 0){
+	if(chdir(path) != 0 && flag==0){
 		cerr << "cd: " << path << ": "<<strerror(errno) <<'\n';
 	}
 
