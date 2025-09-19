@@ -203,7 +203,6 @@ void executePipeline(const vector<Command> &commands)
 		dup2(pipefd[0], STDIN_FILENO);
 		close(pipefd[1]);
 		close(pipefd[0]);
-		// Builtin support for right command
 		if (isBuiltin(commands[1].name))
 		{
 			if (commands[1].name == "echo")
