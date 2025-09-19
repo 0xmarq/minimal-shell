@@ -155,74 +155,74 @@ char **vec_to_cstr_array(const vector<string> &v)
 // New: pipeline for two commands only
 void executePipeline(const vector<Command> &commands)
 {
-	if (commands.size() != 2)
-	{
-		cerr << "Only two-command pipelines are supported in this mode.\n";
+	int n = commands.size();
+	if (n < 2)
 		return;
-	}
-	vector<string> left;
-	left.push_back(commands[0].name);
-	left.insert(left.end(), commands[0].args.begin(), commands[0].args.end());
-	vector<string> right;
-	right.push_back(commands[1].name);
-	right.insert(right.end(), commands[1].args.begin(), commands[1].args.end());
 
-	int pipefd[2];
-	if (pipe(pipefd) == -1)
+	vector<int> pipes(2 * (n - 1));
+	for (int i = 0; i < n - 1; ++i)
 	{
-		perror("pipe");
-		return;
-	}
-
-	pid_t pid1 = fork();
-	if (pid1 == 0)
-	{
-		dup2(pipefd[1], STDOUT_FILENO);
-		close(pipefd[0]);
-		close(pipefd[1]);
-		// Builtin support for left command
-		if (isBuiltin(commands[0].name))
+		if (pipe(&pipes[2 * i]) < 0)
 		{
-			if (commands[0].name == "echo")
-				handleEcho(commands[0]);
-			else if (commands[0].name == "pwd")
-				handlePwd(commands[0]);
-			else if (commands[0].name == "type")
-				handleType(commands[0]);
-			exit(0);
+			perror("pipe");
+			exit(EXIT_FAILURE);
 		}
-		char **argv1 = vec_to_cstr_array(left);
-		execvp(argv1[0], argv1);
-		perror("execvp left");
-		exit(EXIT_FAILURE);
 	}
 
-	pid_t pid2 = fork();
-	if (pid2 == 0)
+	vector<pid_t> pids(n);
+	for (int i = 0; i < n; ++i)
 	{
-		dup2(pipefd[0], STDIN_FILENO);
-		close(pipefd[1]);
-		close(pipefd[0]);
-		if (isBuiltin(commands[1].name))
+		pids[i] = fork();
+		if (pids[i] == 0)
 		{
-			if (commands[1].name == "echo")
-				handleEcho(commands[1]);
-			else if (commands[1].name == "pwd")
-				handlePwd(commands[1]);
-			else if (commands[1].name == "type")
-				handleType(commands[1]);
-			exit(0);
+			// Set up input from previous pipe if not first command
+			if (i > 0)
+			{
+				dup2(pipes[2 * (i - 1)], STDIN_FILENO);
+			}
+			// Set up output to next pipe if not last command
+			if (i < n - 1)
+			{
+				dup2(pipes[2 * i + 1], STDOUT_FILENO);
+			}
+			// Close all pipe fds in child
+			for (int j = 0; j < 2 * (n - 1); ++j)
+				close(pipes[j]);
+
+			// Builtin support in pipeline (except cd/exit)
+			if (isBuiltin(commands[i].name))
+			{
+				if (commands[i].name == "echo")
+					handleEcho(commands[i]);
+				else if (commands[i].name == "pwd")
+					handlePwd(commands[i]);
+				else if (commands[i].name == "type")
+					handleType(commands[i]);
+				exit(0);
+			}
+
+			// External command
+			vector<string> args;
+			args.push_back(commands[i].name);
+			args.insert(args.end(), commands[i].args.begin(), commands[i].args.end());
+			char **argv = vec_to_cstr_array(args);
+			execvp(argv[0], argv);
+			perror("execvp");
+			exit(EXIT_FAILURE);
 		}
-		char **argv2 = vec_to_cstr_array(right);
-		execvp(argv2[0], argv2);
-		perror("execvp right");
-		exit(EXIT_FAILURE);
+		else if (pids[i] < 0)
+		{
+			perror("fork");
+			exit(EXIT_FAILURE);
+		}
 	}
 
-	close(pipefd[0]);
-	close(pipefd[1]);
-	waitpid(pid1, nullptr, 0);
-	waitpid(pid2, nullptr, 0);
+	// Parent closes all pipe fds
+	for (int j = 0; j < 2 * (n - 1); ++j)
+		close(pipes[j]);
+	// Wait for all children
+	for (int i = 0; i < n; ++i)
+		waitpid(pids[i], nullptr, 0);
 }
 
 //<--- Dispatcher ---> //
