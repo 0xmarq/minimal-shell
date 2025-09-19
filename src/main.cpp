@@ -220,7 +220,6 @@ void executePipeline(const vector<Command> &commands)
 		exit(EXIT_FAILURE);
 	}
 
-	// Parent
 	close(pipefd[0]);
 	close(pipefd[1]);
 	waitpid(pid1, nullptr, 0);
