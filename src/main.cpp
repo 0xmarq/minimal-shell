@@ -175,21 +175,17 @@ void executePipeline(const vector<Command> &commands)
 		pids[i] = fork();
 		if (pids[i] == 0)
 		{
-			// Set up input from previous pipe if not first command
 			if (i > 0)
 			{
 				dup2(pipes[2 * (i - 1)], STDIN_FILENO);
 			}
-			// Set up output to next pipe if not last command
 			if (i < n - 1)
 			{
 				dup2(pipes[2 * i + 1], STDOUT_FILENO);
 			}
-			// Close all pipe fds in child
 			for (int j = 0; j < 2 * (n - 1); ++j)
 				close(pipes[j]);
 
-			// Builtin support in pipeline (except cd/exit)
 			if (isBuiltin(commands[i].name))
 			{
 				if (commands[i].name == "echo")
@@ -280,6 +276,8 @@ int main()
 	cerr << std::unitbuf;
 	while (true)
 	{
+		cout.flush();
+		cerr.flush();
 		cout << "$ ";
 		string input;
 		if (!getline(cin, input))
