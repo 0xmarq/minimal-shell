@@ -1,720 +1,534 @@
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <filesystem>
-#include <cstdio>
-#include <unistd.h>	   // for fork(), execvp()
-#include <sys/types.h> // for pid_t
-#include <sys/wait.h>  // for waitpid()
-#include <vector>
-#include <fcntl.h>
-#include <unordered_map>
-#include <cstring>
-#include <algorithm> //for sorting
-// #include <bits/stdc++.h>
-#include <termios.h>
+#include <bits/stdc++.h>
 #include <cstdlib>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sstream>
+#include <termios.h>
+#include <dirent.h>
 
 using namespace std;
-using namespace std::filesystem; // find out why this and why not for other headers
 
-// need trie to store names of all executables
-typedef struct Trie_node
+struct Trie
 {
-	unordered_map<char, struct Trie_node *> children;
-	bool isEnd = false;
-} TrieNode;
-
-class Trie
-{
-
-public:
-	TrieNode *root = new TrieNode();
-
-	void insert(string word)
+	struct Node
 	{
-		TrieNode *node = root;
+		unordered_map<char, Node *> children;
+		bool is_end = false;
+	};
+	Node *root = new Node();
+
+	void insert(const string &word)
+	{
+		Node *node = root;
 		for (char c : word)
 		{
-			// node not present
-			if (!node->children[c])
-				node->children[c] = new TrieNode();
+			if (!node->children.count(c))
+				node->children[c] = new Node();
 			node = node->children[c];
 		}
-		node->isEnd = true;
+		node->is_end = true;
+	}
+
+	// Returning all completions for a given prefix....
+	void dfs(Node *node, string &path, vector<string> &results)
+	{
+		if (node->is_end)
+			results.push_back(path);
+		for (auto &it : node->children)
+		{
+			path.push_back(it.first);
+			dfs(it.second, path, results);
+			path.pop_back();
+		}
+	}
+
+	vector<string> complete(const string &prefix)
+	{
+		Node *node = root;
+		for (char c : prefix)
+		{
+			if (!node->children.count(c))
+				return {};
+			node = node->children[c];
+		}
+		vector<string> results;
+		string path = prefix;
+		dfs(node, path, results);
+		return results;
 	}
 };
 
-// storing all executable names in a trie
-void make_trie(Trie &trie)
+struct Command
 {
-	string path_env = getenv("PATH");
-	stringstream ss(path_env);
+	string name;
+	vector<string> args;
+};
 
-	string path;
-
-	// inside loop there is a variation of try and catch
-	// for better code....refer it later
-	while (getline(ss, path, ':'))
-	{
-		for (auto it : directory_iterator(path))
-		{
-			string entry_path = it.path().string();
-			string filename = it.path().filename().string();
-			//&& access(entry_path.c_str(),X_OK
-			if (is_regular_file(entry_path))
-			{
-				// file is executable
-				trie.insert(filename);
-			}
-		}
-	}
-}
-string find_path(string cmd)
-{
-	string path_env = getenv("PATH");
-	stringstream ss(path_env);
-
-	string path;
-
-	while (getline(ss, path, ':'))
-	{
-		string cmd_path = path + "/" + cmd;
-
-		if (is_regular_file(cmd_path) && access(cmd_path.c_str(), X_OK) == 0)
-		{
-			return cmd_path; // return on first match
-		}
-	}
-	return "";
-}
-
-// make a cleaner version if possible
-vector<string> split(string s)
-{
-	vector<string> res;
-
-	// below iis to strip off white space
-	int start = 0;
-	while (s[start] == ' ' && start < s.size())
-		start++;
-
-	string a = "";
-	int sq = 0, dq = 0, pres = 0;
-	for (int i = start; i < s.size(); i++)
-	{
-		if (s[i] == ' ' && sq == 0 && dq == 0 && pres == 0)
-		{
-			if (!a.empty())
-			{
-				res.push_back(a);
-				a = "";
-			}
-		}
-		else if (s[i] == '\'')
-		{
-			if (sq == 0 && dq == 0 && pres == 0)
-				sq = 1;
-			else if (sq == 1 && pres == 0)
-				sq = 0;
-			else
-			{
-				if (pres == 1 && dq == 1)
-					a += '\\';
-				a += s[i];
-				pres = 0;
-			}
-		}
-
-		else if (s[i] == '\"')
-		{
-			if (sq == 0 && dq == 0 && pres == 0)
-				dq = 1;
-			else if (dq == 1 && pres == 0)
-				dq = 0;
-			else
-			{
-				a += s[i];
-				pres = 0;
-			}
-		}
-
-		else if (s[i] == '\\')
-		{
-			if (sq == 0 && pres == 0)
-				pres = 1;
-			else
-			{
-				a += s[i];
-				pres = 0;
-			}
-		}
-
-		else
-		{
-			if (dq == 1 && pres == 1)
-				a += '\\';
-			a += s[i];
-			pres = 0;
-		}
-	}
-
-	if (!a.empty())
-	{
-		res.push_back(a);
-	}
-	return res;
-}
-
-// below fn is to change terminal settings
-//  comment more explanation here later
+// Enable raw mode for terminal
 void setRawMode(bool enable)
 {
 	static struct termios oldt, newt;
-	static bool inRaw = false;
-
 	if (enable)
 	{
-		if (!inRaw)
-		{
-			tcgetattr(STDIN_FILENO, &oldt); // Save old terminal settings
-			inRaw = true;
-		}
+		tcgetattr(STDIN_FILENO, &oldt);
 		newt = oldt;
-		newt.c_lflag &= ~(ICANON | ECHO);		 // Disable canonical mode and echo
-		tcsetattr(STDIN_FILENO, TCSANOW, &newt); // Apply new settings
+		newt.c_lflag &= ~(ICANON | ECHO); // Dude wtf is this???
+		// Im saving the old attributes and disabling canonical mode and echo
+		// Then setting the new attributes
+		tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 	}
 	else
 	{
-		tcsetattr(STDIN_FILENO, TCSANOW, &oldt); // Restore original settings
+		tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 	}
 }
 
-// removed echo as its also present as executable
-// so to prevent conflict
-vector<string> built_ins = {"exit", "type", "cd", "pwd"};
-
-void find_built_ins(string text, vector<string> &res)
+//<--- Search PATH --->
+void searchPath(const string &commandName)
 {
-	int len = text.size();
-	for (int i = 0; i < built_ins.size(); i++)
+	char *pathenv = getenv("PATH");
+	if (!pathenv)
+		return;
+
+	string path = pathenv;
+	vector<string> dirs;
+	stringstream ss(path);
+	string dir;
+
+	while (getline(ss, dir, ':'))
 	{
-		if (strncmp(text.c_str(), built_ins[i].c_str(), len) == 0)
+		string candidate = dir + "/" + commandName;
+		if (access(candidate.c_str(), X_OK) == 0)
 		{
-			res.push_back(built_ins[i]);
-		}
-	}
-}
-
-void get_all_execs(TrieNode *node, string prefix, vector<string> &res)
-{
-	// ie we have already typed the whole word and no more other
-	// word that are possible from what we have typed
-	if (node->isEnd)
-		res.push_back(prefix);
-	for (auto it : node->children)
-	{
-		char c = it.first;
-		TrieNode *child = it.second;
-
-		get_all_execs(child, prefix + c, res);
-	}
-}
-
-void find_execs(string text, vector<string> &res, Trie &trie)
-{
-	int len = text.size();
-	TrieNode *node = trie.root;
-	for (char c : text)
-	{
-		if (!node->children[c])
-			return;
-		node = node->children[c];
-	}
-
-	get_all_execs(node, text, res);
-}
-
-void partial_comp(string &text, Trie &trie)
-{
-	TrieNode *node = trie.root;
-	for (char c : text)
-	{
-		node = node->children[c];
-	}
-	while (node->children.size() == 1 && node->isEnd == false)
-	{
-		char letter = node->children.begin()->first;
-		text += letter;
-		node = node->children[letter];
-	}
-}
-
-void autocomplete(string &input, int &found, Trie &trie, int &tab)
-{
-	string copy = input;
-	string last_word;
-	for (int i = copy.size() - 1; i >= 0; i--)
-	{
-		if (copy[i] == ' ' || copy.empty())
-			break;
-		last_word = copy[i] + last_word;
-		copy.pop_back();
-	}
-
-	vector<string> matches;
-	find_built_ins(last_word, matches);
-	find_execs(last_word, matches, trie);
-	// sorting if needed just find words in order in prev algos
-	// so as to prevent sorting....this is temporary
-	sort(matches.begin(), matches.end());
-
-	if (matches.size() == 0)
-	{
-		// if no matches
-		// \a is bell sounnd??? or something
-		cout << "\r\a$ " << input << flush;
-		tab = 0;
-	}
-	else if (matches.size() == 1)
-	{
-		copy += matches[0] + " ";
-		cout << "\r$ " << copy << flush;
-		input = copy;
-		found = 1;
-	}
-	else
-	{
-		if (tab == 1)
-		{
-			// check if we can partial complete;
-			partial_comp(last_word, trie);
-			copy += last_word;
-			cout << "\r$ " << copy << flush;
-			input = copy;
-			tab++;
+			cout << commandName << " is " << candidate << "\n";
 			return;
 		}
-
-		tab = 1;
-		cout << "\n"
-			 << flush;
-		for (int i = 0; i < matches.size(); i++)
-		{
-			if (i % 5 == 4)
-				cout << matches[i] << "\n"
-					 << flush;
-			else
-				cout << matches[i] << "  " << flush;
-		}
-		// cout<<"\ntoo many matches\n"<<flush;
-		cout << "\n\r\a$ " << input << flush;
 	}
+
+	cout << commandName << ": not found\n";
 }
 
-int execute(string input)
+class Parser
 {
-	// cout<<input<<endl;
-	vector<string> parsed = split(input);
-	// cout<<parsed[0]<<endl<<parsed[1]<<endl;
-
-	vector<string> output;
-	// to split parsed again to accomodate redirection
-	int redirection = 0;
-	int error_redirection = 0;
-	int append = 0;
-	int i = 0;
-	while (i < parsed.size())
+public:
+	// Tokenize input, handling quotes
+	vector<string> tokenize(const string &input)
 	{
-
-		if (parsed[i] == ">" || parsed[i] == "1>" || parsed[i] == "2>" ||
-			parsed[i] == ">>" || parsed[i] == "2>>" || parsed[i] == "1>>")
+		vector<string> tokens;
+		string token;
+		bool in_quotes = false;
+		char quote_char = 0;
+		for (size_t i = 0; i < input.size(); ++i)
 		{
-
-			redirection = 1;
-			if (parsed[i][0] == '2')
-				error_redirection = 1;
-			if (parsed[i] == "2>>" || parsed[i] == "1>>" || parsed[i] == ">>")
-				append = 1;
-			parsed.erase(parsed.begin() + i);
-		}
-		else if (redirection == 1)
-		{
-			output.push_back(parsed[i]);
-			parsed.erase(parsed.begin() + i);
-		}
-		else
-			i++;
-	}
-
-	string cmd = parsed[0];
-
-	int terminal; // to used to store like fd so we can redirect o/p
-	int fd = -1;  // file desc
-	// to terminal
-
-	// stops on "exit";
-	if (cmd == "exit")
-		return 0;
-
-	// echo cmd to print text after it
-	else if (cmd == "echo")
-	{
-
-		if (redirection)
-		{
-			// O_WRONLY we are opening file in write only mode if it exists
-			//  if file doesnt exists O_CREAT creates a file and permission 0644
-			//  if already exits then O_TRUNC clears old contents
-			if (!append)
-				fd = open(output[0].c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-			else
-				fd = open(output[0].c_str(), O_WRONLY | O_CREAT | O_APPEND, 0664);
-			if (fd < 0)
+			char c = input[i];
+			if ((c == '"' || c == '\'') && !in_quotes)
 			{
-				perror("open failed");
-				return 1;
+				in_quotes = true;
+				quote_char = c;
 			}
-			// below we store to redirect back to terminal
-			terminal = dup(STDOUT_FILENO);
-			// redirect stdout to the file
-			if (error_redirection)
-				dup2(fd, STDERR_FILENO);
-			else
-				dup2(fd, STDOUT_FILENO);
-		}
-
-		for (int i = 1; i < parsed.size(); i++)
-		{
-			cout << parsed[i];
-			if (i < parsed.size() - 1)
-				cout << " ";
-		}
-		cout << endl;
-
-		if (redirection && fd >= 0)
-		{
-			close(fd);
-			// changing redirection back to terminal
-			dup2(terminal, STDOUT_FILENO);
-			dup2(terminal, STDERR_FILENO);
-		}
-	}
-
-	else if (cmd == "type")
-	{
-		for (int i = 1; i < parsed.size(); i++)
-		{
-			string cmd2 = parsed[i];
-			if (cmd2 == "echo" || cmd2 == "exit" || cmd2 == "type" || cmd2 == "pwd")
+			else if (in_quotes && c == quote_char)
 			{
-				cout << cmd2 << " is a shell builtin" << endl;
+				in_quotes = false;
 			}
-			else
+			else if (isspace(c) && !in_quotes)
 			{
-				// cout<<cmd2<<": not found"<<endl;
-
-				string path = find_path(cmd2);
-				if (path.empty())
+				if (!token.empty())
 				{
-					cout << cmd2 << ": not found\n";
-				}
-				else
-				{
-					cout << cmd2 << " is " << path << endl;
+					tokens.push_back(token);
+					token.clear();
 				}
 			}
+			else
+			{
+				token += c;
+			}
 		}
+		if (!token.empty())
+			tokens.push_back(token);
+		return tokens;
 	}
 
-	else if (cmd == "pwd")
+	Command parseInput(const string input)
 	{
-		cout << current_path().string() << endl; // gives pwd
-	}
-	// std::cout<<input<<": command not found" << std::endl;
-
-	else if (cmd == "cd")
-	{
-		// below works for relative and absolute paths
-		// there is another way but below is similar to what is used by actual shell
-		string dest = parsed[1];
-		if (dest == "~")
+		Command cmd;
+		vector<string> tokens = tokenize(input);
+		if (!tokens.empty())
 		{
-			dest = getenv("HOME");
+			cmd.name = tokens[0];
+			for (size_t i = 1; i < tokens.size(); ++i)
+				cmd.args.push_back(tokens[i]);
 		}
-
-		int fail = chdir(dest.c_str()); // chdir changes current working dir
-		if (fail != 0)
+		return cmd;
+	}
+	vector<Command> parsePipe(const string input)
+	{
+		vector<Command> commands;
+		istringstream inp(input);
+		string segment;
+		while (getline(inp, segment, '|'))
 		{
-			cout << "cd: " << dest << ": No such file or directory" << endl;
+			commands.push_back(parseInput(segment));
 		}
+		return commands;
+	}
+};
+
+class BuiltInHandler
+
+{
+public:
+	bool isBuiltin(const string &name)
+	{
+		return (name == "exit" || name == "echo" || name == "type" || name == "pwd");
+	}
+	//<--- Builtin handlers ---> //
+
+	void handleExit(const Command &cmd)
+	{
+		int code = (cmd.args.empty() ? 0 : stoi(cmd.args[0]));
+		exit(code);
+	}
+	void handleEcho(const Command &cmd)
+	{
+		for (size_t i = 0; i < cmd.args.size(); i++)
+		{
+			if (i > 0)
+				write(STDOUT_FILENO, " ", 1);
+			write(STDOUT_FILENO, cmd.args[i].c_str(), cmd.args[i].size());
+		}
+		write(STDOUT_FILENO, "\n", 1);
 	}
 
-	else
+	void handleType(const Command &cmd)
 	{
-		string path = find_path(cmd);
+		if (cmd.args.empty())
+			return;
 
-		if (path == "")
-			cout << cmd << ": command not found" << endl;
-
+		string arg = cmd.args[0];
+		if (isBuiltin(arg))
+		{
+			cout << arg << " is a shell builtin\n";
+		}
 		else
 		{
-			// we will be making a fork and running exec in that
+			searchPath(arg);
+		}
+	}
+	void handlePwd(const Command &cmd)
+	{
+		char cwd[1024]; // buffer
+		if (getcwd(cwd, sizeof(cwd)) != NULL)
+		{
+			cout << cwd << "\n";
+		}
+		else
+		{
+			perror("getcwd");
+		}
+	}
+
+	void handleCd(const Command &cmd)
+	{
+		const char *path;
+		int flag = 0;
+		if (cmd.args.empty())
+		{
+			cout << " cd: missing argument" << '\n';
+			flag = 1;
+		}
+		else if (cmd.args[0] == "~")
+		{
+			path = getenv("HOME");
+		}
+		else
+		{
+			path = cmd.args[0].c_str();
+		}
+		if (chdir(path) != 0 && flag == 0)
+		{
+			cerr << "cd: " << path << ": " << strerror(errno) << '\n';
+		}
+	}
+};
+
+class Executor
+{
+public:
+	// Helper: convert vector<string> to char* array for execvp
+	char **vec_to_cstr_array(const vector<string> &v) // Really clueless what this actually does....
+	{
+		char **arr = new char *[v.size() + 1];
+		for (size_t i = 0; i < v.size(); ++i)
+		{
+			arr[i] = strdup(v[i].c_str());
+		}
+		arr[v.size()] = nullptr;
+		return arr;
+	}
+
+	// New: pipeline for two commands only
+	void executePipeline(const vector<Command> &commands)
+	{
+		int n = commands.size();
+		if (n < 2)
+			return;
+
+		vector<int> pipes(2 * (n - 1));
+		for (int i = 0; i < n - 1; ++i)
+		{
+			if (pipe(&pipes[2 * i]) < 0)
+			{
+				perror("pipe");
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		vector<pid_t> pids(n);
+		for (int i = 0; i < n; ++i)
+		{
+			pids[i] = fork();
+			if (pids[i] == 0)
+			{
+				setvbuf(stdout, NULL, _IONBF, 0);
+				setvbuf(stderr, NULL, _IONBF, 0);
+				if (i > 0)
+				{
+					dup2(pipes[2 * (i - 1)], STDIN_FILENO);
+				}
+				if (i < n - 1)
+				{
+					dup2(pipes[2 * i + 1], STDOUT_FILENO);
+				}
+				for (int j = 0; j < 2 * (n - 1); ++j)
+					close(pipes[j]);
+				BuiltInHandler built;
+				if (built.isBuiltin(commands[i].name))
+				{
+					if (commands[i].name == "echo")
+						built.handleEcho(commands[i]);
+					else if (commands[i].name == "pwd")
+						built.handlePwd(commands[i]);
+					else if (commands[i].name == "type")
+						built.handleType(commands[i]);
+					_exit(0);
+				}
+
+				// If not a builtin, execute external command
+				// External command
+				vector<string> args;
+				args.push_back(commands[i].name);
+				args.insert(args.end(), commands[i].args.begin(), commands[i].args.end());
+				char **argv = vec_to_cstr_array(args);
+				execvp(argv[0], argv);
+				for (size_t k = 0; argv[k] != nullptr; ++k)
+					free(argv[k]);
+				delete[] argv;
+				perror("execvp");
+				exit(EXIT_FAILURE);
+				perror("execvp");
+				exit(EXIT_FAILURE);
+			}
+			else if (pids[i] < 0)
+			{
+				perror("fork");
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		// Parent closes all pipe fds
+		for (int j = 0; j < 2 * (n - 1); ++j)
+			close(pipes[j]);
+		// Wait for all children
+		for (int i = 0; i < n; ++i)
+			waitpid(pids[i], nullptr, 0);
+	}
+
+	//<--- Dispatcher ---> //
+	void execute(const Command &cmd)
+	{
+		BuiltInHandler b;
+		if (cmd.name == "exit")
+		{
+			b.handleExit(cmd);
+			cout.flush();
+			cerr.flush();
+		}
+		else if (cmd.name == "echo")
+			b.handleEcho(cmd);
+		else if (cmd.name == "type")
+			b.handleType(cmd);
+		else if (cmd.name == "pwd")
+			b.handlePwd(cmd);
+		else if (cmd.name == "cd")
+			b.handleCd(cmd);
+		else
+		{
+			vector<char *> argv;
+			argv.push_back(const_cast<char *>(cmd.name.c_str()));
+			for (auto &arg : cmd.args)
+			{
+				argv.push_back(const_cast<char *>(arg.c_str()));
+			}
+			argv.push_back(NULL);
 
 			pid_t pid = fork();
-
-			if (pid == -1)
+			if (pid == 0)
 			{
-				cerr << "fork failed" << endl;
+				// <--- child process:
+				execvp(argv[0], argv.data());
+				cerr << cmd.name << ": command not found\n";
+				exit(1);
 			}
-			else if (pid == 0)
+			else if (pid > 0)
 			{
-				// child process
-
-				string executable = parsed[0];
-
-				// execvp(const char* command, char* argv[]);
-				char ex[executable.size() + 1];
-				for (int i = 0; i < executable.size(); i++)
-					ex[i] = executable[i];
-				ex[executable.size()] = '\0';
-				// execvp needs \0 at end of string
-
-				// to accomodate the format of execvp
-				char *arg[parsed.size() + 1];
-				for (int i = 0; i < parsed.size(); i++)
-				{
-					// below comments didnt as memory is not alloced
-					//  const char *p=parsed[i+1].c_str();
-					//  strcpy(arg[i],p);
-					arg[i] = strdup(parsed[i].c_str());
-				}
-				arg[parsed.size()] = nullptr;
-				// execvp needs array to end with null pointer;
-
-				if (redirection)
-				{
-					// O_WRONLY we are opening file in write only mode if it exists
-					//  if file doesnt exists O_CREAT creates a file and permission 0644
-					//  if already exits then O_TRUNC clears old contents
-					//  O_APPEND appends content
-					if (!append)
-						fd = open(output[0].c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-					else
-						fd = open(output[0].c_str(), O_WRONLY | O_CREAT | O_APPEND, 0664);
-
-					if (fd < 0)
-					{
-						perror("open failed");
-						return 1;
-					}
-					// below we store to redirect back to terminal
-					terminal = dup(STDOUT_FILENO);
-
-					// redirect stdout/stderr to the file
-					if (error_redirection)
-						dup2(fd, STDERR_FILENO);
-					else
-						dup2(fd, STDOUT_FILENO);
-				}
-
-				execvp(ex, arg);
+				// <--- Parent process: wait for child
+				int status;
+				waitpid(pid, &status, 0);
 			}
 			else
-			{ // parent process
-				wait(NULL);
-				if (redirection && fd >= 0)
+			{
+				perror("fork failed");
+			}
+		}
+	}
+};
+
+class Shell
+{
+	Trie trie;
+
+public:
+	Shell()
+	{
+		// Insert builtins
+		vector<string> builtins = {"exit", "echo", "type", "pwd", "cd"};
+		for (const string &cmd : builtins)
+		{
+			trie.insert(cmd);
+		}
+		char *pathenv = getenv("PATH");
+		if (pathenv)
+		{
+			string path = pathenv;
+			stringstream ss(path);
+			string dir;
+			while (getline(ss, dir, ':'))
+			{
+				DIR *dp = opendir(dir.c_str());
+				if (dp)
 				{
-					close(fd);
-					// changing redirection back to terminal
-					dup2(terminal, STDOUT_FILENO);
-					dup2(terminal, STDERR_FILENO);
+					struct dirent *entry;
+					while ((entry = readdir(dp)) != NULL)
+					{
+						if (entry->d_type == DT_REG || entry->d_type == DT_LNK || entry->d_type == DT_UNKNOWN)
+						{
+							trie.insert(entry->d_name);
+						}
+					}
+					closedir(dp);
 				}
 			}
 		}
 	}
-	// for now keep this return value
-	return 1;
-}
-
-int main()
-{
-
-	// Flush after every std::cout / std:cerr
-
-	// std::cout << std::unitbuf;
-	cout << std::unitbuf;
-	// std::cerr << std::unitbuf;
-	cerr << std::unitbuf;
-
-	Trie trie;
-	make_trie(trie);
-
-	while (1)
+	int run()
 	{
-
-		cout << "$ ";
-		string input;
-		// // std::getline(std::cin, input);
-		// getline(cin,input);
-
-		// below readline method to get i/p is to
-		// accomodate tab autocompletion
-		// char *ip=readline("$ ");
-
-		// understand setRawMode again
-		setRawMode(true);
-		// this disables echo so you cant see what you type in the screen
-		// we have to manually display this
-
-		int found = 0;
-		int tab = 0; // for tab count
 		while (true)
 		{
-			// cout<<"entered\n";
-			char ch = getchar();
-
-			if (ch == '\n')
+			cout.flush();
+			cerr.flush();
+			cout << "$ ";
+			string input;
+			char ch;
+			while (true)
 			{
-				cout << "\n";
-				tab = 0;
-				found = 1;
-				break;
-			}
-			else if (ch == '\t')
-			{
-				tab++;
-				autocomplete(input, found, trie, tab);
-				// break;
-			}
-			else if (ch == 127)
-			{
-				tab = 0;
-				// this is for backspace
-				if (!input.empty())
+				ch = getchar();
+				if (ch == '\n')
 				{
-					input.pop_back();
-					//\r is to clear the line
-					cout << "\r$ " << input;
-					// below space is to replace the backspaced char
-					// even though we reprint a stirng of len 0 to n-2
-					// what we had removed in n-1 will still be displayed
-					// so that is replaced by space
-					cout << ' ';
-					cout << "\r$ " << input << flush;
+					cout << endl;
+					break;
 				}
-			}
-			else
-			{
-				tab = 0;
-				input += ch;
-				cout << ch << flush;
-			}
-		}
-
-		setRawMode(false);
-
-		if (input.empty() || !found)
-			continue;
-
-		vector<string> cmds;
-		stringstream ss(input);
-		string part;
-
-		while (getline(ss, part, ';'))
-		{
-			cmds.push_back(part);
-		}
-
-		for (int i = 0; i < cmds.size(); i++)
-		{
-			// fn to exec a single instr
-			//  this was done bcoz one line could be multiple commands
-			//  so as to accomodate executing all of them
-			//  eg ls;ls
-			//  stringstream ss(cmds[i]);
-			vector<string> pipe_split;
-			// while(getline(ss,part,'|')){
-			//         pipe_split.push_back(part);
-			// }
-			string s = "";
-
-			for (int j = 0; j < cmds[i].size(); j++)
-			{
-
-				if (cmds[i][j] == '|')
+				else if (ch == '\t')
 				{
-					if (!s.empty())
-						pipe_split.push_back(s);
-					s = "";
+					size_t pos = input.find_last_of(" ");
+					string prefix = (pos == string ::npos) ? input : input.substr(pos + 1);
+
+					vector<string> matches = trie.complete(prefix);
+					if (matches.size() == 1)
+					{
+						input += matches[0].substr(prefix.size()) + " ";
+						cout << matches[0].substr(prefix.size()) << " ";
+					}
+					else if (matches.size() > 1)
+					{
+						cout << "\n";
+						for (const string &m : matches)
+							cout << m << "    ";
+						cout << "\n$ " << input;
+					}
+					else if (matches.empty())
+					{
+						cout << '\x07';
+						cout.flush();
+					}
+				}
+				else if (ch == 127 || ch == '\b')
+				{
+					if (!input.empty())
+					{
+						input.pop_back();
+						cout << "\b \b";
+					}
 				}
 				else
 				{
-					s += cmds[i][j];
-					// cout<<s<<endl;
+					input += ch;
+					cout << ch;
 				}
 			}
-			if (!s.empty())
-				pipe_split.push_back(s);
-			if (pipe_split.size() <= 1)
-			{
-				int exit = execute(cmds[i]);
-				if (!exit)
-					return exit;
-			}
 
+			Parser parser;
+			vector<Command> cmds = parser.parsePipe(input);
+			if (cmds.size() > 1)
+			{
+				Executor executor;
+				executor.executePipeline(cmds);
+			}
 			else
 			{
-				int n = pipe_split.size();
-
-				vector<int> pipefds(2 * (n - 1));
-				for (int i = 0; i < n - 1; i++)
-				{
-					if (pipe(pipefds.data() + i * 2) == -1)
-					{
-						perror("pipe");
-						return 1;
-					}
-				}
-
-				vector<pid_t> pids(n);
-
-				for (int i = 0; i < n; i++)
-				{
-					pids[i] = fork();
-					if (pids[i] == -1)
-					{
-						perror("fork");
-						return 1;
-					}
-
-					if (pids[i] == 0)
-					{
-
-						if (i > 0)
-						{
-							dup2(pipefds[(i - 1) * 2], STDIN_FILENO);
-						}
-
-						if (i < n - 1)
-						{
-							dup2(pipefds[i * 2 + 1], STDOUT_FILENO);
-						}
-
-						for (int j = 0; j < 2 * (n - 1); j++)
-							close(pipefds[j]);
-
-						int ext = execute(pipe_split[i]);
-						return 1;
-					}
-				}
-
-				for (int j = 0; j < 2 * (n - 1); j++)
-					close(pipefds[j]);
-
-				for (int i = 0; i < n; i++)
-					waitpid(pids[i], nullptr, 0);
+				Executor executor;
+				executor.execute(cmds[0]);
 			}
 		}
 	}
+};
+
+// <--- Main --->
+int main()
+{
+	cout << std::unitbuf;
+	cerr << std::unitbuf;
+	setRawMode(true);
+	Shell shell;
+	shell.run();
+	setRawMode(false);
+	return 0;
 }
+
+/* Doubts"""
+	1. Converting vector<string> to char** for execvp
+	2. Pipeline implementation for multiple commands not working...
+	3. Handling built-in commands in pipeline
+*/
+
+/*
+	Things To do:
+	1. Handle empty input
+	2. Using trie's for auto-completion
+	7. Showing suggestions....
+				3. Signal handling (Ctrl+C, Ctrl+D)
+				4. More built-in commands (cd, ls, etc.)
+				5. Error handling and edge cases
+				6. Comments and documentation
+
+*/
