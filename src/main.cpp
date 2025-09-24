@@ -462,8 +462,9 @@ public:
 					else if (matches.size() > 1)
 					{
 						cout << "\n";
+						cout << '\a';
 						for (const string &m : matches)
-							cout << m << "    ";
+							cout << m << "  ";
 						cout << "\n$ " << input;
 					}
 					else if (matches.empty())
