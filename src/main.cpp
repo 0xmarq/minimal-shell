@@ -35,10 +35,17 @@ struct Trie
 	{
 		if (node->is_end)
 			results.push_back(path);
+
+		// Collect keys and sort them
+		vector<char> keys;
 		for (auto &it : node->children)
+			keys.push_back(it.first);
+		sort(keys.begin(), keys.end());
+
+		for (char c : keys)
 		{
-			path.push_back(it.first);
-			dfs(it.second, path, results);
+			path.push_back(c);
+			dfs(node->children[c], path, results);
 			path.pop_back();
 		}
 	}

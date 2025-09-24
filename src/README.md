@@ -23,10 +23,11 @@
           setting terminal to raw mode.
         - Using getline() wont trigger
           auto-completion.
+    -I dont know whatevertf I did to implement the auto completion for path executables....
 
 ---
 
-## Parsing Char-by-char;;
+## Parsing Char-by-char
 
         -Instead of parsing using simple
             getline(), stringstream and
@@ -37,3 +38,5 @@
         - Setting terminal to Raw Mode
 
 ## Issues
+
+    - This is humbling, smh
