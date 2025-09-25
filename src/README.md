@@ -40,3 +40,14 @@
 ## Issues
 
     - This is humbling, smh
+
+# Splitting the project into seperate files.
+
+    src/
+
+├── main.cpp
+├── shell.h/cpp
+├── trie.h/cpp
+├── parser.h/cpp
+├── executor.h/cpp
+├── builtin.h/cpp

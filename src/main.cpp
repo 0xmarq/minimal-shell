@@ -116,6 +116,22 @@ void searchPath(const string &commandName)
 	cout << commandName << ": not found\n";
 }
 
+string longestCommonPrefix(const vector<string> &matches)
+{
+	if (matches.empty())
+		return "";
+	string prefix = matches[0];
+	for (size_t i = 1; i < matches.size(); i++)
+	{
+		size_t j = 0;
+		while (j < prefix.size() && j < matches[i].size() && prefix[j] == matches[i][j])
+			++j;
+		prefix = prefix.substr(0, j);
+		if (prefix.empty())
+			break;
+	}
+	return prefix;
+}
 class Parser
 {
 public:
@@ -455,11 +471,21 @@ public:
 					cout << endl;
 					break;
 				}
+				else if (ch == 127 || ch == '\b')
+				{
+					if (!input.empty())
+					{
+						input.pop_back();
+						cout << "\b \b";
+					}
+				}
 				else if (ch == '\t')
 				{
+					// Extract the current word (including underscores) before the cursor
 					size_t pos = input.find_last_of(" ");
-					string prefix = (pos == string ::npos) ? input : input.substr(pos + 1);
+					string prefix = (pos == string::npos) ? input : input.substr(pos + 1);
 
+					// Now, prefix includes any underscores or other characters typed
 					vector<string> matches = trie.complete(prefix);
 					if (matches.size() == 1)
 					{
@@ -468,6 +494,12 @@ public:
 					}
 					else if (matches.size() > 1)
 					{
+						string lcp = longestCommonPrefix(matches);
+						if (lcp.size() > prefix.size())
+						{
+							input += lcp.substr(prefix.size());
+							cout << lcp.substr(prefix.size());
+						}
 						cout << "\n";
 						cout << '\a';
 						for (const string &m : matches)
@@ -478,14 +510,6 @@ public:
 					{
 						cout << '\x07';
 						cout.flush();
-					}
-				}
-				else if (ch == 127 || ch == '\b')
-				{
-					if (!input.empty())
-					{
-						input.pop_back();
-						cout << "\b \b";
 					}
 				}
 				else
