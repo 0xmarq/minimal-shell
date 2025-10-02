@@ -324,11 +324,11 @@ public:
 		{
 			try
 			{
-				n = std::stoi(cmd.args[0]);
+				n = stoi(cmd.args[0]);
 			}
 			catch (...)
 			{
-				std::cerr << "history: invalid number\n";
+				cerr << "history: invalid number\n";
 				return;
 			}
 		}
@@ -341,7 +341,7 @@ public:
 		start = history.size() - n;
 		for (int i = start; i < (int)history.size(); ++i)
 		{
-			std::cout << "    " << i + 1 << "  " << history[i] << "\n";
+			cout << "    " << i + 1 << "  " << history[i] << "\n";
 		}
 	}
 };
