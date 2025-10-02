@@ -148,58 +148,50 @@ public:
 
 			if (c == '"' && !in_single_quotes)
 			{
-				// toggle double quote mode
-				if (in_double_quotes)
-				{
-					// end quoted string
-					in_double_quotes = false;
-				}
-				else
-				{
-					in_double_quotes = true;
-				}
+				in_double_quotes = !in_double_quotes;
 			}
 			else if (c == '\'' && !in_double_quotes)
 			{
-				// toggle single quote mode
-				if (in_single_quotes)
-				{
-					in_single_quotes = false;
-				}
-				else
-				{
-					in_single_quotes = true;
-				}
+				in_single_quotes = !in_single_quotes;
 			}
 			else if (c == '\\')
 			{
-				// handle escape sequences
 				if (i + 1 < input.size())
 				{
 					char next_c = input[++i];
-					switch (next_c)
+
+					if (in_double_quotes || in_single_quotes)
 					{
-					case 'n':
-						token += '\n';
-						break;
-					case 't':
-						token += '\t';
-						break;
-					case 'r':
-						token += '\r';
-						break;
-					case '\\':
-						token += '\\';
-						break;
-					case '\'':
-						token += '\'';
-						break;
-					case '"':
-						token += '"';
-						break;
-					default:
+						// inside quotes → honor escapes
+						switch (next_c)
+						{
+						case 'n':
+							token += '\n';
+							break;
+						case 't':
+							token += '\t';
+							break;
+						case 'r':
+							token += '\r';
+							break;
+						case '\\':
+							token += '\\';
+							break;
+						case '\'':
+							token += '\'';
+							break;
+						case '"':
+							token += '"';
+							break;
+						default:
+							token += next_c;
+							break;
+						}
+					}
+					else
+					{
+						// outside quotes → keep literal
 						token += next_c;
-						break; // unknown escapes = literal
 					}
 				}
 				else
@@ -209,7 +201,6 @@ public:
 			}
 			else if (isspace(c) && !in_double_quotes && !in_single_quotes)
 			{
-				// whitespace = token separator
 				if (!token.empty())
 				{
 					tokens.push_back(token);
