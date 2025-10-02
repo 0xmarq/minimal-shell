@@ -198,7 +198,6 @@ public:
 };
 
 class BuiltInHandler
-
 {
 public:
 	bool isBuiltin(const string &name)

@@ -37,9 +37,16 @@
         Ctrl+C...
         - Setting terminal to Raw Mode
 
+`This actually happens by just taking every character as we type and comparing if it equals some trigger. If yes, do the process else add the char to the input`
+
 ## Issues
 
     - This is humbling, smh
+
+## Termios
+
+    - Setting terminal into Raw mode
+        -toggling attributes of the termios object , ICANON etc...
 
 # Splitting the project into seperate files.
 
