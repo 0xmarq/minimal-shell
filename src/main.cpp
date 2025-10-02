@@ -136,26 +136,84 @@ class Parser
 {
 public:
 	// Tokenize input, handling quotes
+#include <bits/stdc++.h>
+	using namespace std;
+
 	vector<string> tokenize(const string &input)
 	{
 		vector<string> tokens;
 		string token;
-		bool in_quotes = false;
-		char quote_char = 0;
+		bool in_double_quotes = false;
+		bool in_single_quotes = false;
+
 		for (size_t i = 0; i < input.size(); ++i)
 		{
 			char c = input[i];
-			if ((c == '"' || c == '\'') && !in_quotes)
+
+			if (c == '"' && !in_single_quotes)
 			{
-				in_quotes = true;
-				quote_char = c;
+				// toggle double quote mode
+				if (in_double_quotes)
+				{
+					// end quoted string
+					in_double_quotes = false;
+				}
+				else
+				{
+					in_double_quotes = true;
+				}
 			}
-			else if (in_quotes && c == quote_char)
+			else if (c == '\'' && !in_double_quotes)
 			{
-				in_quotes = false;
+				// toggle single quote mode
+				if (in_single_quotes)
+				{
+					in_single_quotes = false;
+				}
+				else
+				{
+					in_single_quotes = true;
+				}
 			}
-			else if (isspace(c) && !in_quotes)
+			else if (c == '\\')
 			{
+				// handle escape sequences
+				if (i + 1 < input.size())
+				{
+					char next_c = input[++i];
+					switch (next_c)
+					{
+					case 'n':
+						token += '\n';
+						break;
+					case 't':
+						token += '\t';
+						break;
+					case 'r':
+						token += '\r';
+						break;
+					case '\\':
+						token += '\\';
+						break;
+					case '\'':
+						token += '\'';
+						break;
+					case '"':
+						token += '"';
+						break;
+					default:
+						token += next_c;
+						break; // unknown escapes = literal
+					}
+				}
+				else
+				{
+					token += '\\'; // trailing backslash
+				}
+			}
+			else if (isspace(c) && !in_double_quotes && !in_single_quotes)
+			{
+				// whitespace = token separator
 				if (!token.empty())
 				{
 					tokens.push_back(token);
@@ -167,8 +225,12 @@ public:
 				token += c;
 			}
 		}
+
 		if (!token.empty())
+		{
 			tokens.push_back(token);
+		}
+
 		return tokens;
 	}
 
