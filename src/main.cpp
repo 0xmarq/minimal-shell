@@ -160,46 +160,38 @@ public:
 				{
 					char next_c = input[++i];
 
-					if (in_double_quotes || in_single_quotes)
+					if (in_single_quotes)
 					{
-						// inside quotes → honor escapes
-						switch (next_c)
+						// backslash is literal inside single quotes
+						token += '\\';
+						token += next_c;
+					}
+					else if (in_double_quotes)
+					{
+						// in double quotes only certain escapes matter
+						if (next_c == '"' || next_c == '\\' || next_c == '$' || next_c == '`')
 						{
-						case 'n':
-							token += '\n';
-							break;
-						case 't':
-							token += '\t';
-							break;
-						case 'r':
-							token += '\r';
-							break;
-						case '\\':
-							token += '\\';
-							break;
-						case '\'':
-							token += '\'';
-							break;
-						case '"':
-							token += '"';
-							break;
-						default:
 							token += next_c;
-							break;
+						}
+						else
+						{
+							// others are literal
+							token += '\\';
+							token += next_c;
 						}
 					}
 					else
 					{
-						// outside quotes → keep literal
+						// outside quotes: backslash escapes next char literally
 						token += next_c;
 					}
 				}
 				else
 				{
-					token += '\\'; // trailing backslash
+					token += '\\';
 				}
 			}
-			else if (isspace(c) && !in_double_quotes && !in_single_quotes)
+			else if (isspace(c) && !in_single_quotes && !in_double_quotes)
 			{
 				if (!token.empty())
 				{
