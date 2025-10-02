@@ -317,9 +317,31 @@ public:
 
 	void handleHistory(const Command &cmd)
 	{
-		for (int i = 0; i < history.size(); i++)
+		int start = 0;
+		int n = history.size(); // default: all commands
+
+		if (!cmd.args.empty())
 		{
-			cout << "    " << i + 1 << " " << history[i] << "\n";
+			try
+			{
+				n = std::stoi(cmd.args[0]);
+			}
+			catch (...)
+			{
+				std::cerr << "history: invalid number\n";
+				return;
+			}
+		}
+
+		if (n < 0)
+			n = 0;
+		if (n > (int)history.size())
+			n = history.size();
+
+		start = history.size() - n;
+		for (int i = start; i < (int)history.size(); ++i)
+		{
+			std::cout << "    " << i + 1 << "  " << history[i] << "\n";
 		}
 	}
 };
