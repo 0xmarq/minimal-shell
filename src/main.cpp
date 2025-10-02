@@ -9,6 +9,8 @@
 
 using namespace std;
 
+vector<string> history;
+
 struct Trie
 {
 	struct Node
@@ -312,6 +314,14 @@ public:
 			cerr << "cd: " << path << ": " << strerror(errno) << '\n';
 		}
 	}
+
+	void handleHistory(const Command &cmd)
+	{
+		for (int i = 0; i < history.size(); i++)
+		{
+			cout << "    " << i + 1 << " " << history[i] << "\n";
+		}
+	}
 };
 
 class Executor
@@ -373,6 +383,8 @@ public:
 						built.handlePwd(commands[i]);
 					else if (commands[i].name == "type")
 						built.handleType(commands[i]);
+					else if (commands[i].name == "history")
+						built.handleHistory(commands[i]);
 					_exit(0);
 				}
 
@@ -424,6 +436,8 @@ public:
 			b.handlePwd(cmd);
 		else if (cmd.name == "cd")
 			b.handleCd(cmd);
+		else if (cmd.name == "history")
+			b.handleHistory(cmd);
 		else
 		{
 			vector<char *> argv;
@@ -514,6 +528,7 @@ public:
 				{
 					if (!input.empty())
 					{
+
 						input.pop_back();
 						cout << "\b \b";
 					}
@@ -559,6 +574,8 @@ public:
 			}
 
 			Parser parser;
+			if (!input.empty())
+				history.push_back(input);
 			vector<Command> cmds = parser.parsePipe(input);
 			if (cmds.size() > 1)
 			{
