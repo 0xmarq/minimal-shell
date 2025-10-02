@@ -135,7 +135,7 @@ string longestCommonPrefix(const vector<string> &matches)
 class Parser
 {
 public:
-	vector<string> tokenize(const string &input)
+	vector<string> tokenize(const string &input) // handles quotes, backslashes and escapes.
 	{
 		vector<string> tokens;
 		string token;
@@ -145,7 +145,6 @@ public:
 		for (size_t i = 0; i < input.size(); ++i)
 		{
 			char c = input[i];
-
 			if (c == '"' && !in_single_quotes)
 			{
 				in_double_quotes = !in_double_quotes;
@@ -243,7 +242,7 @@ class BuiltInHandler
 public:
 	bool isBuiltin(const string &name)
 	{
-		return (name == "exit" || name == "echo" || name == "type" || name == "pwd");
+		return (name == "exit" || name == "echo" || name == "type" || name == "pwd" || name == "history");
 	}
 	//<--- Builtin handlers ---> //
 

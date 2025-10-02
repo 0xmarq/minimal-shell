@@ -51,10 +51,27 @@
 # Splitting the project into seperate files.
 
     src/
+    ├── main.cpp
+    ├── shell.h/cpp
+    ├── trie.h/cpp
+    ├── parser.h/cpp
+    ├── executor.h/cpp
+    ├── builtin.h/cpp
 
-├── main.cpp
-├── shell.h/cpp
-├── trie.h/cpp
-├── parser.h/cpp
-├── executor.h/cpp
-├── builtin.h/cpp
+## Handling quoting
+
+### Basic Behaviour of shell
+
+    - Inside double quotes, \ should escape special characters but not turn \n into a newline.
+      It should literally insert n.
+      example-
+        ` $ echo "foo\nbar" `
+        ` foo\nbar`
+    - Inside single quotes, everything is literal, the only exception is to escape a single ' is by opening and closing it.
+        ''\'97' becomes '97 .
+        'foo '\''bar' becomes foo 'bar.
+    - Outside quotes, \ escapes the very next character literally
+        so, \n becomes a new line, '\' escapes a space.
+    - Tokenizer handles quoting logic including backslashes and escapes.
+
+    --> Tasks
