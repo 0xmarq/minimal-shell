@@ -135,10 +135,6 @@ string longestCommonPrefix(const vector<string> &matches)
 class Parser
 {
 public:
-	// Tokenize input, handling quotes
-#include <bits/stdc++.h>
-	using namespace std;
-
 	vector<string> tokenize(const string &input)
 	{
 		vector<string> tokens;
