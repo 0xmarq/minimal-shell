@@ -11,7 +11,6 @@ using namespace std;
 
 vector<string> history;
 string input_buffer;
-int history_index = history.size();
 
 void redraw_line(const std::string &input)
 {
@@ -553,6 +552,7 @@ public:
       cout.flush();
       cerr.flush();
       cout << "$ ";
+      int history_index = history.size();
       string input;
       char ch;
       while (true)
