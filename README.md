@@ -2,13 +2,25 @@
 
 ## Setup
 
-1. Clone this repository using \
-   `git clone https://github.com/0xmarq/minimal-shell`
-2. Make sure your Cmake build points to `CMAKE_CXX_STANDARD 23`
-   if its different, you'll be prompted an error regarding this once you run the program
+1.  **Clone this repository using** \
+    `git clone https://github.com/0xmarq/minimal-shell `\
+    `cd minimal-shell`
+2.  **Build the project** \
+    This project requires C++23. If your system compiler defaults to an older standard, CMake will fail during configuration.
 
-3. Run the program by executing `your_program.sh`, present in the root dir
-4. The main file is under the `\src` folder
+    `cmake -S . -B build -DCMAKE_CXX_STANDARD=23` \
+    `cmake --build build`
+
+3.  Run the shell by executing `your_program.sh`, from the project root
+4.  **Project Structure**
+
+        src/
+        ├── main.cpp
+        ├── shell.cpp / shell.h
+        ├── parser.cpp / parser.h
+        ├── executor.cpp / executor.h
+        ├── builtin.cpp / builtin.h
+        ├── trie.cpp / trie.h
 
 ## Implementation Notes
 
