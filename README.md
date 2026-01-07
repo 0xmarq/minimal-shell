@@ -60,10 +60,6 @@
 
 `This actually happens by just taking every character as we type and comparing if it equals some trigger. If yes, do the process else add the char to the input`
 
-## Issues
-
-    - This is humbling, smh
-
 ## 3.Termios
 
     - Setting terminal into Raw mode
